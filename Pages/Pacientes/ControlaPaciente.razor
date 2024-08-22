@@ -1,0 +1,114 @@
+﻿@page "/pacientes"
+@using System.Text.Json
+@inject IJSRuntime JS
+
+<h3>Cadastrar Paciente</h3>
+
+<EditForm Model="paciente" OnValidSubmit="CadastrarPaciente">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="row">
+        <div class="col-md-3">
+            <label for="nome" class="form-label">Nome</label>
+            <InputText @bind-Value="paciente.Nome" id="nome" class="form-control" required />
+        </div>
+
+        <div class="col-md-3">
+            <label for="idade" class="form-label">Idade</label>
+            <InputNumber @bind-Value="paciente.Idade" id="idade" class="form-control" required />
+        </div>
+
+        <div class="col-md-3">
+            <label for="email" class="form-label">Email</label>
+            <InputText @bind-Value="paciente.Email" id="email" class="form-control" type="email" required />
+        </div>
+        <div class="col-md-3">
+            <label for="email" class="form-label">Ação</label><br />
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </div>
+    </div>
+</EditForm>
+
+<hr />
+
+<h3>Pacientes Cadastrados</h3>
+
+@if (pacientes.Count == 0)
+{
+    <p>Nenhum paciente cadastrado.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Idade</th>
+                <th>Email</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var paciente in pacientes)
+            {
+                <tr>
+                    <td>@paciente.Nome</td>
+                    <td>@paciente.Idade</td>
+                    <td>@paciente.Email</td>
+                    <td>
+                        <NavLink class="btn btn-link" href="@($"/pacientes/{paciente.Id}/consulta")">Consultar Histórico</NavLink>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private Paciente paciente = new Paciente();
+    private List<Paciente> pacientes = new List<Paciente>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarPacientes();
+    }
+
+    private async Task CadastrarPaciente()
+    {
+        paciente.Id = Guid.NewGuid();
+
+        var jsonPaciente = JsonSerializer.Serialize(paciente);
+        await JS.InvokeVoidAsync("localStorage.setItem", $"paciente_{paciente.Id}", jsonPaciente);
+
+        pacientes.Add(paciente);
+
+        paciente = new Paciente();
+    }
+
+    private async Task CarregarPacientes()
+    {
+        pacientes.Clear();
+
+        // Call the JS function to get the localStorage keys
+        var keys = await JS.InvokeAsync<string[]>("localStorageHelper.getLocalStorageKeys");
+
+        foreach (var key in keys)
+        {
+            if (key.StartsWith("paciente_"))
+            {
+                var jsonPaciente = await JS.InvokeAsync<string>("localStorage.getItem", key);
+                var paciente = JsonSerializer.Deserialize<Paciente>(jsonPaciente);
+                pacientes.Add(paciente);
+            }
+        }
+    }
+
+    public class Paciente
+    {
+        public Guid Id { get; set; }
+        public string Nome { get; set; }
+        public int Idade { get; set; }
+        public string Email { get; set; }
+    }
+}

@@ -1,0 +1,242 @@
+﻿@page "/pacientes/{Id:guid}/consulta"
+@using System.Text.Json
+@using MedKaki.Pages.Pacientes
+@inject IJSRuntime JS
+
+<h3>Registrar Consulta</h3>
+
+<EditForm Model="consulta" OnValidSubmit="RegistrarConsulta">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="mb-3">
+        <label for="dataHora" class="form-label">Data e Hora da Consulta</label>
+        <InputDate @bind-Value="consulta.DataHora" id="dataHora" class="form-control" Type="InputDateType.DateTimeLocal" required />
+    </div>
+
+    <div class="mb-3">
+        <label for="anotacoes" class="form-label">Anotações</label>
+        <InputTextArea @bind-Value="consulta.Anotacoes" id="anotacoes" class="form-control" rows="5" required />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Registrar Consulta</button>   
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registrarGlicemiaModal">Adicionar Glicemia</button>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#registrarimcModal">Adicionar IMC</button>
+</EditForm>
+
+<MedKaki.Pages.Pacientes.ControlaGlicemia PacienteId="Id" OnGlicemiaAdded="AtualizarGlicemias"></MedKaki.Pages.Pacientes.ControlaGlicemia>
+<MedKaki.Pages.Pacientes.ControlaIMC PacienteId="Id" OnimcAdded="AtualizarIMC"></MedKaki.Pages.Pacientes.ControlaIMC>
+
+<div class="m-4"></div>
+
+<ul class="nav nav-tabs" id="myTab" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" id="home-tab" data-bs-toggle="tab" href="#tab_home" role="tab" aria-controls="home" aria-selected="true">Histórico de Consultas</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" id="glicemia-tab" data-bs-toggle="tab" href="#tab_glicemia" role="tab" aria-controls="glicemia" aria-selected="false">Histórico de Glicemia</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" id="imc-tab" data-bs-toggle="tab" href="#tab_imc" role="tab" aria-controls="imc" aria-selected="false">Histórico de IMC</a>
+    </li>
+</ul>
+<div class="tab-content" id="myTabContent">
+    <div class="tab-pane fade show active" id="tab_home" role="tabpanel" aria-labelledby="home-tab">
+        <h3 class="mt-4">Histórico de Consultas</h3>
+        @if (consultas.Count == 0)
+        {
+            <p>Nenhum registro de consulta encontrado.</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Anotações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in consultas)
+                    {
+                        <tr>
+                            <td>@c.DataHora.ToString("g")</td>
+                            <td>@c.Anotacoes</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+    <div class="tab-pane fade" id="tab_glicemia" role="tabpanel" aria-labelledby="glicemia-tab">
+        <h3 class="mt-4">Glicemia</h3>
+        @if (glicemias.Count == 0)
+        {
+            <p>Nenhum registro de glicemia encontrado.</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in glicemias)
+                    {
+                        <tr>
+                            <td>@g.DataHora.ToString("g")</td>
+                            <td>@g.Valor</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <MedKaki.Pages.Pacientes.GraficoGlicemia Glicemias="glicemias"></MedKaki.Pages.Pacientes.GraficoGlicemia>            
+        }
+    </div>
+    <div class="tab-pane fade" id="tab_imc" role="tabpanel" aria-labelledby="imc-tab">
+        <h3 class="mt-4">IMC</h3>
+        @if (IMCS.Count == 0)
+        {
+            <p>Nenhum registro de IMC encontrado.</p>
+        }
+        else
+        {
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in IMCS)
+                    {
+                        <tr>
+                            <td>@g.DataHora.ToString("g")</td>
+                            <td>@g.Valor</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+
+            <MedKaki.Pages.Pacientes.GraficoIMC IMCS="IMCS"></MedKaki.Pages.Pacientes.GraficoIMC>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private Consulta consulta = new Consulta();
+    private List<Consulta> consultas = new List<Consulta>();
+    private List<ControlaGlicemia.Glicemia> glicemias = new List<ControlaGlicemia.Glicemia>();
+    private List<ControlaIMC.IMC> IMCS = new List<ControlaIMC.IMC>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        consulta.DataHora = DateTime.Now;
+        await CarregarConsultas();
+        await CarregarGlicemias();
+        await CarregarIMCS();
+    }
+
+    private async Task RegistrarConsulta()
+    {
+        consulta.Id = Guid.NewGuid().ToString("N"); // Criando um Guid sem traços
+        consulta.PacienteId = Id;
+
+        var jsonConsulta = JsonSerializer.Serialize(consulta);
+        await JS.InvokeVoidAsync("localStorage.setItem", $"consulta_{consulta.Id}", jsonConsulta);
+
+        consultas.Add(consulta);
+
+        consulta = new Consulta();
+        consulta.DataHora = DateTime.Now;
+    }
+
+    private async Task CarregarConsultas()
+    {
+        consultas.Clear();
+
+        var keys = await JS.InvokeAsync<string[]>("localStorageHelper.getLocalStorageKeys");
+
+        foreach (var key in keys)
+        {
+            if (key.StartsWith("consulta_"))
+            {
+                var jsonConsulta = await JS.InvokeAsync<string>("localStorage.getItem", key);
+                var storedConsulta = JsonSerializer.Deserialize<Consulta>(jsonConsulta);
+                if (storedConsulta.PacienteId == Id)
+                {
+                    consultas.Add(storedConsulta);
+                }
+            }
+        }
+    }
+
+    private async Task CarregarGlicemias()
+    {
+        glicemias.Clear();
+
+        var keys = await JS.InvokeAsync<string[]>("localStorageHelper.getLocalStorageKeys");
+
+        foreach (var key in keys)
+        {
+            if (key.StartsWith("glicemia_"))
+            {
+                var jsonGlicemia = await JS.InvokeAsync<string>("localStorage.getItem", key);
+                var storedGlicemia = JsonSerializer.Deserialize<ControlaGlicemia.Glicemia>(jsonGlicemia);
+                if (storedGlicemia.PacienteId == Id)
+                {
+                    glicemias.Add(storedGlicemia);
+                }
+            }
+        }
+    }
+
+    private async Task CarregarIMCS()
+    {
+        IMCS.Clear();
+
+        var keys = await JS.InvokeAsync<string[]>("localStorageHelper.getLocalStorageKeys");
+
+        foreach (var key in keys)
+        {
+            if (key.StartsWith("imc_"))
+            {
+                var jsonIMC = await JS.InvokeAsync<string>("localStorage.getItem", key);
+                var storedIMC = JsonSerializer.Deserialize<ControlaIMC.IMC>(jsonIMC);
+                if (storedIMC.PacienteId == Id)
+                {
+                    IMCS.Add(storedIMC);
+                }
+            }
+        }
+    }
+
+    private async Task AtualizarGlicemias()
+    {
+        await CarregarGlicemias();
+        StateHasChanged();
+    }
+
+    private async Task AtualizarIMC()
+    {
+        await CarregarIMCS();
+        StateHasChanged();
+    }
+    
+
+    public class Consulta
+    {
+        public string Id { get; set; }
+        public Guid PacienteId { get; set; }
+        public DateTime DataHora { get; set; }
+        public string Anotacoes { get; set; }
+    }
+}
