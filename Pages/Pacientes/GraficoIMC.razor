@@ -1,0 +1,27 @@
+﻿@inject IJSRuntime JS
+
+<h3>Gráfico de IMC</h3>
+
+<canvas id="graficoIMC"></canvas>
+
+@code {
+    [Parameter]
+    public List<ControlaIMC.IMC> IMCS { get; set; } = new List<ControlaIMC.IMC>();
+
+    private const double LimiteSuperior = 40; // Ajuste conforme necessário
+    private const double LimiteInferior = 22;  // Ajuste conforme necessário
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CriarGrafico();
+        }
+    }
+
+    private async Task CriarGrafico()
+    {
+        var ctx = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graficos.js");
+        await ctx.InvokeVoidAsync("criarGrafico", "graficoIMC", "IMC", IMCS, LimiteSuperior, LimiteInferior);
+    }   
+}

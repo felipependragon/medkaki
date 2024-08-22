@@ -1,0 +1,27 @@
+﻿@inject IJSRuntime JS
+
+<h3>Gráfico de Glicemia</h3>
+
+<canvas id="graficoGlicemia"></canvas>
+
+@code {
+    [Parameter]
+    public List<ControlaGlicemia.Glicemia> Glicemias { get; set; } = new List<ControlaGlicemia.Glicemia>();
+
+    private const double LimiteSuperior = 120; // Ajuste conforme necessário
+    private const double LimiteInferior = 90;  // Ajuste conforme necessário
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await CriarGrafico();
+        }
+    }
+
+    private async Task CriarGrafico()
+    {
+        var ctx = await JS.InvokeAsync<IJSObjectReference>("import", "./js/graficos.js");
+        await ctx.InvokeVoidAsync("criarGrafico", "graficoGlicemia", "Glicemia", Glicemias, LimiteSuperior, LimiteInferior);
+    }   
+}
