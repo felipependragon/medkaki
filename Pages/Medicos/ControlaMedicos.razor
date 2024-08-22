@@ -1,0 +1,113 @@
+﻿@page "/medicos"
+@using System.Text.Json
+@inject IJSRuntime JS
+
+<h3>Cadastrar Medico</h3>
+
+<EditForm Model="medico" OnValidSubmit="CadastrarMedico">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="row">
+        <div class="col-md-3">
+            <label for="nome" class="form-label">Nome</label>
+            <InputText @bind-Value="medico.Nome" id="nome" class="form-control" required />
+        </div>
+
+        <div class="col-md-3">
+            <label for="idade" class="form-label">Idade</label>
+            <InputNumber @bind-Value="medico.Idade" id="idade" class="form-control" required />
+        </div>
+
+        <div class="col-md-3">
+            <label for="email" class="form-label">Email</label>
+            <InputText @bind-Value="medico.Email" id="email" class="form-control" type="email" required />
+        </div>
+        <div class="col-md-3">
+            <label for="email" class="form-label">Ação</label><br />
+            <button type="submit" class="btn btn-primary">Cadastrar</button>
+        </div>
+    </div>    
+</EditForm>
+
+<hr />
+
+<h3>Medicos Cadastrados</h3>
+
+@if (medicos.Count == 0)
+{
+    <p>Nenhum medico cadastrado.</p>
+}
+else
+{
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Idade</th>
+                <th>Email</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var medico in medicos)
+            {
+                <tr>
+                    <td>@medico.Nome</td>
+                    <td>@medico.Idade</td>
+                    <td>@medico.Email</td>
+                    <td>
+                        <NavLink class="btn btn-link" href="@($"/pacientes")">Consultar Pacientes</NavLink>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private Medico medico = new Medico();
+    private List<Medico> medicos = new List<Medico>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CarregarMedicos();
+    }
+
+    private async Task CadastrarMedico()
+    {
+        medico.Id = Guid.NewGuid();
+
+        var jsonMedico = JsonSerializer.Serialize(medico);
+        await JS.InvokeVoidAsync("localStorage.setItem", $"medico_{medico.Id}", jsonMedico);
+
+        medicos.Add(medico);
+
+        medico = new Medico();
+    }
+
+    private async Task CarregarMedicos()
+    {
+        medicos.Clear();
+
+        // Call the JS function to get the localStorage keys
+        var keys = await JS.InvokeAsync<string[]>("localStorageHelper.getLocalStorageKeys");
+
+        foreach (var key in keys)
+        {
+            if (key.StartsWith("medico_"))
+            {
+                var jsonMedico = await JS.InvokeAsync<string>("localStorage.getItem", key);
+                var medico = JsonSerializer.Deserialize<Medico>(jsonMedico);
+                medicos.Add(medico);
+            }
+        }
+    }
+
+    public class Medico
+    {
+        public Guid Id { get; set; }
+        public string Nome { get; set; }
+        public int Idade { get; set; }
+        public string Email { get; set; }
+    }
+}
